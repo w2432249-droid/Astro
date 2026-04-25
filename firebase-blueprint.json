@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "Wishlist": {
+      "title": "Wishlist",
+      "description": "A birthday wishlist container",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the wishlist"
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the user who owns this wishlist"
+        },
+        "userEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Email of the owner (for identification)"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Name of the owner"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["title", "userId", "createdAt"]
+    },
+    "Gift": {
+      "title": "Gift",
+      "description": "A gift item in a wishlist",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the gift"
+        },
+        "price": {
+          "type": "number",
+          "description": "Approximate price"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Image URL or base64 of the gift"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["available", "claimed"],
+          "description": "Availability status"
+        },
+        "claimedBy": {
+          "type": "string",
+          "description": "Name or UID of the person who claimed the gift"
+        },
+        "claimedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When it was claimed"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Display order"
+        }
+      },
+      "required": ["name", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/wishlists/{wishlistId}": {
+      "schema": "Wishlist",
+      "description": "Top-level wishlist document"
+    },
+    "/wishlists/{wishlistId}/gifts/{giftId}": {
+      "schema": "Gift",
+      "description": "Gifts within a specific wishlist"
+    }
+  }
+}

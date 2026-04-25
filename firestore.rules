@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Wishlist Validation
+    function isValidWishlist(data) {
+      return data.keys().hasAll(['title', 'userId', 'createdAt']) 
+        && data.title is string && data.title.size() <= 100
+        && data.userId == request.auth.uid
+        && data.createdAt == request.time;
+    }
+
+    // Gift Validation
+    function isValidGift(data) {
+      return data.keys().hasAll(['name', 'status', 'createdAt'])
+        && data.name is string && data.name.size() <= 100
+        && data.status in ['available', 'claimed']
+        && (data.price == null || data.price is number)
+        && (data.imageUrl == null || data.imageUrl is string)
+        && data.createdAt is timestamp;
+    }
+
+    match /wishlists/{wishlistId} {
+      allow get: if true; // Publicly accessible via link
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid; // Only owner can list their own
+      
+      allow create: if isSignedIn() 
+        && isValidId(wishlistId) 
+        && isValidWishlist(incoming());
+      
+      allow update: if isOwner(existing().userId)
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().title is string && incoming().title.size() <= 100;
+
+      allow delete: if isOwner(existing().userId);
+
+      match /gifts/{giftId} {
+        allow get: if true;
+        allow list: if true; // Friends need to see the list
+
+        allow create: if isOwner(get(/databases/$(database)/documents/wishlists/$(wishlistId)).data.userId)
+          && isValidId(giftId)
+          && isValidGift(incoming())
+          && incoming().createdAt == request.time
+          && incoming().status == 'available';
+
+        allow update: if (
+            // Owner can update everything
+            isOwner(get(/databases/$(database)/documents/wishlists/$(wishlistId)).data.userId)
+            && isValidGift(incoming())
+          ) || (
+            // Non-owner can only claim
+            isSignedIn() 
+            && existing().status == 'available'
+            && incoming().status == 'claimed'
+            && incoming().claimedBy is string
+            && incoming().claimedBy.size() <= 100
+            && incoming().claimedAt == request.time
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'claimedBy', 'claimedAt'])
+          );
+
+        allow delete: if isOwner(get(/databases/$(database)/documents/wishlists/$(wishlistId)).data.userId);
+      }
+    }
+  }
+}
